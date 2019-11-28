@@ -5,6 +5,28 @@ from spacy.tokenizer import Tokenizer
 from spacy.lang.en import English
 from itertools import product
 from collections import defaultdict
+from random import random
+
+class Graph:
+    def __init__(self):
+        self.edges = defaultdict(lambda : defaultdict(int))
+        self.nodes = {}
+
+    def add_edge(self, source, target):
+        self.edges[source][target] += 1
+
+        self.add_node(source)
+        self.add_node(target)
+
+    def add_node(self, node):
+        if node not in self.nodes:
+            self.nodes[node] = 10 * random.random()
+
+    def calculate_score(self, node):
+            for self.edges[node]
+
+
+
 
 class TextRank:
     def __init__(self):
@@ -12,7 +34,7 @@ class TextRank:
         # Create a blank Tokenizer with just the English vocab
         self.tokenizer = Tokenizer(self.nlp.vocab)
         self.window_size = 3
-        self.graph = defaultdict(lambda : defaultdict(int))
+        self.graph = Graph()
 
     def run(self):
         for json_file in os.listdir("data/"):
@@ -41,7 +63,8 @@ class TextRank:
     def __update_graph(self, window):
         all_combinations = product(window, repeat=2)
         for source, target in all_combinations:
-            self.graph[source][target] += 1
+            self.graph.add_edge(source, target)
+
 
 
 

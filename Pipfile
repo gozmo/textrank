@@ -7,6 +7,9 @@ verify_ssl = true
 
 [packages]
 spacy = "*"
+streamlit = "*"
+pudb = "*"
+colour = "*"
 
 [requires]
 python_version = "3.6"

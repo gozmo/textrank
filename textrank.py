@@ -35,10 +35,6 @@ class Graph:
                 score = self.calculate_score(node)
                 self.nodes[node] = (1 - self.d) + self.d + score
 
-    def top(self):
-        a = [(score, node) for node, score in self.nodes.items()]
-        a = sorted(a)
-        print(a[-20:])
 
 class TextRank:
     def __init__(self):
@@ -81,11 +77,17 @@ class TextRank:
         self.graph.loop(iterations)
         self.graph.top()
 
+    def top(self):
+        a = [(score, node) for node, score in self.graph.nodes.items()]
+        a = sorted(a)
+        return a[-20:])
 
 
-sample_text = "Compatibility of systems of linear constraints over the set of natural numbers. Criteria of compatibility of a system of linear Diophantine equations, strictinequations, and nonstrict inequations are considered. Upper bounds forcomponents of a minimal set of solutions and algorithms of construction ofminimal generating sets of solutions for all types of systems are given. These criteria and the corresponding algorithms for constructing a minimalsupporting set of solutions can be used in solving all the considered  typessystems and systems of mixed types."
 
-textrank = TextRank()
-#textrank.build_graph()
-textrank.loop(sample_text)
-textrank.train(30)
+# sample_text = "Compatibility of systems of linear constraints over the set of natural numbers. Criteria of compatibility of a system of linear Diophantine equations, strictinequations, and nonstrict inequations are considered. Upper bounds forcomponents of a minimal set of solutions and algorithms of construction ofminimal generating sets of solutions for all types of systems are given. These criteria and the corresponding algorithms for constructing a minimalsupporting set of solutions can be used in solving all the considered  typessystems and systems of mixed types."
+
+# textrank = TextRank()
+# #textrank.build_graph()
+# textrank.loop(sample_text)
+# textrank.train(30)
+

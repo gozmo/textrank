@@ -10,10 +10,10 @@ from itertools import product
 from collections import defaultdict
 from random import random
 
-STOPWORDS = ["a","able","about","across","after","all","almost","also","am","among","an","and","any","are","as","at","be","because","been","but","by","can","cannot","could","dear","did","do","does","either","else","ever","every","for","from","get","got","had","has","have","he","her","hers","him","his","how","however","i","if","in","into","is","it","its","just","least","let","like","likely","may","me","might","most","must","my","neither","no","nor","not","of","off","often","on","only","or","other","our","own","rather","said","say","says","she","should","since","so","some","than","that","the","their","them","then","there","these","they","this","tis","to","too","twas","us","wants","was","we","were","what","when","where","which","while","who","whom","why","will","with","would","yet","you","your"]
+#STOPWORDS = ["a","able","about","across","after","all","almost","also","am","among","an","and","any","are","as","at","be","because","been","but","by","can","cannot","could","dear","did","do","does","either","else","ever","every","for","from","get","got","had","has","have","he","her","hers","him","his","how","however","i","if","in","into","is","it","its","just","least","let","like","likely","may","me","might","most","must","my","neither","no","nor","not","of","off","often","on","only","or","other","our","own","rather","said","say","says","she","should","since","so","some","than","that","the","their","them","then","there","these","they","this","tis","to","too","twas","us","wants","was","we","were","what","when","where","which","while","who","whom","why","will","with","would","yet","you","your"]
 
 class TextRank:
-    def __init__(self, window_size, iterations, keywords):
+    def __init__(self, window_size, iterations, keywords, ngram_size):
         self.nlp = spacy.load("en_core_web_sm")
         # Create a blank Tokenizer with just the English vocab
         self.tokenizer = Tokenizer(self.nlp.vocab)
@@ -23,6 +23,7 @@ class TextRank:
         self.d = 0.85
         self.iterations = iterations
         self.keywords = keywords
+        self.ngram_size = ngram_size
 
     def process_document(self, document):
         doc = self.nlp(document)
@@ -36,15 +37,28 @@ class TextRank:
                 if len(tokenized_sentence) < end_offset:
                     break
                 window = tokenized_sentence[start_offset:end_offset]
-                self.__update_graph(window)
+                ngrams = self.calc_grams(window)
+                self.__update_graph(ngrams)
         self.loop()
         keywords = self.top()
-        merge = self.merge_keywords(keywords)
-        return merge
+        return keywords
+        # merge = self.merge_keywords(keywords)
+        # return merge
+
+    def calc_grams(self, window):
+        grams = []
+        for idx in range(len(window)):
+            end_index = idx + self.ngram_size
+            if len(window) < end_index:
+                break
+            gram = " ".join(window[idx:end_index])
+            grams.append(gram)
+        return grams
+
 
     def __tokenize_sentence(self, sentence):
         tokenized_sentence = self.tokenizer(str(sentence))
-        tokenized_sentence = filter(lambda token: str(token) not in STOPWORDS, tokenized_sentence)
+        #tokenized_sentence = filter(lambda token: str(token) not in STOPWORDS, tokenized_sentence)
         tokenized_sentence = map(lambda x: str(x), tokenized_sentence)
         tokenized_sentence = map(lambda x: x.strip(), tokenized_sentence)
         tokenized_sentence = map(lambda x: x.lower(), tokenized_sentence)
@@ -118,8 +132,9 @@ document = st.text_input("text to be processed", textrank_example, "input_docume
 window_size = st.slider("window_size", 2, 10, step=1, value=2)
 iterations = st.slider("iterations", 1, 50, step=1, value=20)
 keywords = st.slider("keywords", 1, 40, step=1, value=5)
+ngram_size = st.slider("ngram_size", 1, 5, step=1, value=1)
 
-textrank = TextRank(window_size, iterations, keywords)
+textrank = TextRank(window_size, iterations, keywords, ngram_size)
 keywords = textrank.process_document(document)
 heatmap = textrank.get_heatmap()
 
@@ -127,7 +142,7 @@ st.table(keywords)
 
 markdown_text = ""
 blue = colour.Color("#bfbfbf")
-colors = list(blue.range_to(colour.Color("red"),11))
+colors = list(blue.range_to(colour.Color("black"),11))
 for token, score in heatmap:
     idx = int(score * 10)
     markdown_token = f"<span style=\"color:{colors[idx]}\">{token}</span>"

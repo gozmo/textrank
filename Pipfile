@@ -10,6 +10,11 @@ spacy = "*"
 streamlit = "*"
 pudb = "*"
 colour = "*"
+networkx = "*"
+matplotlib = "*"
+minio = "*"
+feedparser = "*"
+graphviz = "*"
 
 [requires]
 python_version = "3.6"

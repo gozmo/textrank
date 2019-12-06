@@ -182,7 +182,6 @@ class TextRank:
             for end_idx in range(end_idx_start, len(tokenized_sentence)):
                 window = [cleaned_token for original_token, cleaned_token in tokenized_sentence[start_idx:end_idx] if cleaned_token != None]
                 if len(window) == self.window_size:
-                    print(window)
                     yield window
                     break
 
@@ -403,7 +402,7 @@ st.table(filtered_word_count)
 
 heatmap_node_score = textrank.get_heatmap("node_score")
 visualize_heatmap(heatmap_node_score, "Word scores heatmap")
-heatmap_graph = textrank.get_heatmap("graph")
+heatmap_graph = textrank.get_heatmap("Words in the Graph")
 visualize_heatmap(heatmap_graph, "Active Words")
 
 show_graph = st.sidebar.radio("Show graph plot", ["No", "Yes"]) == "Yes"

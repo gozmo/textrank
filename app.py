@@ -1,9 +1,4 @@
-from collections import Counter
-from collections import defaultdict
 from itertools import combinations
-from minio import Minio
-from minio.error import ResponseError
-from pathlib import Path
 from random import random
 from spacy.lang.en import English
 from spacy.tokenizer import Tokenizer
@@ -11,15 +6,6 @@ import graphviz
 import feedparser
 import urllib
 import colour
-import getpass
-import json
-import logging
-import matplotlib.pyplot as plt
-import networkx as nx
-import sys
-import glob
-import os
-import pudb
 import spacy
 import streamlit as st
 
@@ -45,52 +31,58 @@ def arxiv():
             papers[title] = summary
     return papers
 
-class TextRank:
-    def __init__(self, window_size, iterations, num_keywords, allowed_pos, use_lemma, weighted_graph, use_stopwords,
-            token_or_sentence="token", merge_keywords=True, damping_factor=0.85):
-        self.nlp = spacy.load("en_core_web_sm")
+def plot_graph(edges):
+    graph = graphviz.Digraph()
+    for source, targets in edges.items():
+        for target, weight in targets.items():
+            graph.edge(source, target)
 
+    st.graphviz_chart(graph)
+
+def visualize_heatmap(heatmap, titel):
+    markdown_text = ""
+    blue = colour.Color("#dfdfdf")
+    colors = list(blue.range_to(colour.Color("black"),11))
+    for token, score in heatmap:
+        idx = int(score * 10)
+        markdown_token = f"<span style=\"color:{colors[idx]}\">{token}</span>"
+        markdown_text += " " + markdown_token
+    st.markdown("## " + titel)
+    st.markdown(markdown_text, unsafe_allow_html=True)
+
+class TextRank:
+    def __init__(self, window_size, num_keywords, allowed_pos, use_lemma, weighted_graph, use_stopwords, merge_keywords):
+        self.nlp = spacy.load("en_core_web_sm")
         self.window_size = window_size
         self.edges = defaultdict(lambda : defaultdict(int))
         self.nodes = defaultdict(float)
-        self.d = damping_factor
-        self.iterations = iterations
         self.num_keywords = num_keywords
         self.allowed_pos = allowed_pos
         self.use_lemma = use_lemma
         self.weighted_graph = weighted_graph
         self.use_stopwords = use_stopwords
-        self.counter = Counter()
-        self.filtered_counter = Counter()
-        self.token_or_sentence = token_or_sentence
         self.merge_keywords = merge_keywords
+        self.iterations = 10
 
     def process_document(self, document):
         doc = self.nlp(document)
         self.tokenized_sentences = []
         for sentence in doc.sents:
-            if self.token_or_sentence == "token":
-                tokenized_sentence = self.__tokenize_sentence(sentence)
-                self.tokenized_sentences.append(tokenized_sentence)
+            tokenized_sentence = self.__tokenize_sentence(sentence)
+            self.tokenized_sentences.append(tokenized_sentence)
 
             for window in self.get_window(tokenized_sentence):
                 self.__update_graph(window)
-            self.__update_filtered_word_count([token for _, token in tokenized_sentence if token != None])
-            self.__update_word_count([token.text for token in sentence if not token.is_stop and not token.pos_ == "PUNCT"])
         self.loop()
-        keywords = self.top()
-        if self.merge_keywords:
-            keywords= self.merge(keywords)
-        keywords = sorted(keywords)
-        return keywords
-
 
     def loop(self):
+        d = 0.85
         key_to_follow =list(self.nodes.keys())[1]
         for _ in range(self.iterations):
             for node in self.nodes.keys():
                 score = self.calculate_score(node)
-                self.nodes[node] = (1 - self.d) + self.d * score
+                self.nodes[node] = (1 - d) + d * score
+
 
     def calculate_score(self, source_node):
         score = 0
@@ -145,10 +137,10 @@ class TextRank:
     def __update_graph(self, window):
         all_combinations = combinations(window,2)
         for source, target in all_combinations:
-            self.add_node(source)
-            self.add_node(target)
-            self.add_edge(source, target)
-            self.add_edge(target, source)
+            self.__add_node(source)
+            self.__add_node(target)
+            self.__add_edge(source, target)
+            self.__add_edge(target, source)
 
     def __update_word_count(self, window):
         self.counter.update(window)
@@ -156,22 +148,29 @@ class TextRank:
     def __update_filtered_word_count(self, window):
         self.filtered_counter.update(window)
 
-    def add_edge(self, source, target):
+    def __add_edge(self, source, target):
         if self.weighted_graph:
             self.edges[source][target] += 1
         else:
             self.edges[source][target] = 1
 
-    def add_node(self, node):
+    def __add_node(self, node):
         if node not in self.nodes:
             self.nodes[node] = 10 * random()
 
-    def top(self):
+    def get_keywords(self):
+        keywords = self.__top_keywords()
+        if self.merge_keywords:
+            keywords= self.__merge(keywords)
+        keywords = sorted(keywords)
+        return keywords
+
+    def __top_keywords(self):
         kw_sorted = sorted(self.nodes.items(), reverse=True, key=lambda x:x[1])
         kw = list(map(lambda x:x[0], kw_sorted))
         return kw[:self.num_keywords]
 
-    def merge(self, keywords):
+    def __merge(self, keywords):
         merged_keywords = []
         for sentence in self.tokenized_sentences:
             kw = []
@@ -209,58 +208,14 @@ class TextRank:
             heatmap.extend(sentence_map)
         return heatmap
 
-    def get_word_frequencies(self):
-        return self.counter.most_common(self.num_keywords)
 
-    def get_filtered_word_frequencies(self):
-        keywords = [word for word, count in self.filtered_counter.most_common(self.num_keywords)]
-        if self.merge_keywords:
-            keywords = self.merge(keywords)
-        keywords = sorted(keywords)
-        return keywords
 
-def plot_graph(edges):
-    graph = graphviz.Digraph()
-    for source, targets in edges.items():
-        for target, weight in targets.items():
-            graph.edge(source, target)
-
-    st.graphviz_chart(graph)
-
-def visualize_heatmap(heatmap, titel):
-    markdown_text = ""
-    blue = colour.Color("#dfdfdf")
-    colors = list(blue.range_to(colour.Color("black"),11))
-    for token, score in heatmap:
-        idx = int(score * 10)
-        markdown_token = f"<span style=\"color:{colors[idx]}\">{token}</span>"
-        markdown_text += " " + markdown_token
-    st.markdown("## " + titel)
-    st.markdown(markdown_text, unsafe_allow_html=True)
-
-examples = { "TextRank Example":"""Compatibility of systems of linear constraints over the set of natural numbers. Criteria of """
-                    """compatibility of a system of linear Diophantine equations, strict inequations, and nonstrict inequations are """
-                    """considered. Upper bounds for components of a minimal set of solutions and algorithms of construction of minimal """
-                    """generating sets of solutions for all types of systems are given. These criteria and the corresponding algorithms for """
-                    """constructing a minimal supporting set of solutions can be used in solving all the considered  types systems and """
-                    """systems of mixed types."""}
- 
-def load_data(path):
-    all_files = glob.glob(path + "/*.txt")
-    corpus = dict()
-    for filename in all_files:
-        with open(filename, "r") as f:
-            file_content = f.read()
-        corpus[filename] = file_content
-    return corpus
-
-@st.cache
-def download_and_process_corpus(corpus_name):
-    dw = Datawarehouse()
-    path = dw.download(corpus_name)
-    return load_data(path)
-
-# Textrank parameters
+example =  """Compatibility of systems of linear constraints over the set of natural numbers. Criteria of """ \
+            """compatibility of a system of linear Diophantine equations, strict inequations, and nonstrict inequations are """\
+            """considered. Upper bounds for components of a minimal set of solutions and algorithms of construction of minimal """ \
+            """generating sets of solutions for all types of systems are given. These criteria and the corresponding algorithms for """ \
+            """constructing a minimal supporting set of solutions can be used in solving all the considered  types systems and """ \
+            """systems of mixed types."""
 
 text_input= st.sidebar.selectbox("Choose text", ["TextRank Example", "Arxiv", "User Input"]) 
 if text_input == "User Input":
@@ -272,13 +227,9 @@ elif text_input == "Arxiv":
     document = document.replace("<p>", "")
     document = document.replace("</p>", "")
 else:
-    document = examples[text_input]
+    document = example
 
 window_size = st.sidebar.slider("Window Size", 2, 10, step=1, value=2)
-# iterations = st.sidebar.slider("iterations", 1, 50, step=1, value=20)
-iterations = 30
-# damping_factor = st.sidebar.slider("Damping Factor", 1, 100, step=1, value=85) /100
-damping_factor = 0.85
 num_keywords = st.sidebar.slider("Keywords to Extract", 1, 40, step=1, value=5)
 allowed_pos = st.sidebar.multiselect("Limit to POS", ["NOUN", "ADJ", "VERB", "PROPN", "PRON", "ADV", "INTJ",  "CCONJ", "DET","X"]) 
 use_lemma = st.sidebar.radio("Use lemma", ["No", "Yes"]) == "Yes"
@@ -286,20 +237,12 @@ use_stopwords = st.sidebar.radio("Include stopwords", ["No", "Yes"]) == "Yes"
 weighted_graph = st.sidebar.radio("Weighted edges", ["Yes", "No"]) == "Yes"
 merge_keywords = st.sidebar.radio("Merge keywords", ["Yes", "No"]) == "Yes"
 
-textrank = TextRank(window_size, iterations, num_keywords, allowed_pos, use_lemma, weighted_graph, use_stopwords, "token", merge_keywords,damping_factor)
-keywords = textrank.process_document(document)
+textrank = TextRank(window_size, num_keywords, allowed_pos, use_lemma, weighted_graph, use_stopwords, merge_keywords)
+textrank.process_document(document)
+keywords = textrank.get_keywords()
 
 st.markdown("## TextRank Keywords")
 st.table(keywords)
-
-st.markdown("## Word Frequency")
-word_count = textrank.get_word_frequencies()
-st.table(word_count)
-
-st.markdown("## Filtered Word Frequency")
-filtered_word_count = textrank.get_filtered_word_frequencies()
-st.table(filtered_word_count)
-
 
 heatmap_node_score = textrank.get_heatmap("node_score")
 visualize_heatmap(heatmap_node_score, "Word scores heatmap")

@@ -23,49 +23,6 @@ import pudb
 import spacy
 import streamlit as st
 
-MINIO_URL = 'alicia:12921'
-CACHE_FOLDER = 'data_cache/'
-def fetch_secrets():
-    secrets = {}
-    home = str(Path.home())
-    with open(f'{home}/.ssh/secrets.properties', 'r') as f:
-        for line in f.readlines():
-            key, value = line.split('=')
-            secrets[key.strip()] = value.strip()
-    return secrets
-
-class Datawarehouse:
-    def __init__(self):
-        secrets = fetch_secrets()
-        self.minio_client = Minio(MINIO_URL,
-                             access_key=secrets['datawarehouse-pub'],
-                             secret_key=secrets['datawarehouse-prv'],
-                             secure=False)
-    def get_available_corpus(self):
-        files =  self.minio_client.list_objects('labeled-corpora')
-        return [f.object_name for f in files]
-
-    def download(self, corpus):
-        version = self.minio_client.list_objects(bucket_name='labeled-corpora', prefix=corpus)
-        corpus_with_version =  [v.object_name for v in version][-1]
-        try:
-            os.makedirs(CACHE_FOLDER + corpus_with_version)
-        except:
-            pass
-        for oo in self.minio_client.list_objects(bucket_name='labeled-corpora', prefix=corpus_with_version):
-            object_name = oo.object_name
-
-            data_stream = self.minio_client.get_object(bucket_name='labeled-corpora', object_name=object_name)
-                #
-                #
-            file_name = CACHE_FOLDER + object_name
-
-                #
-                #
-            with open(file_name, 'wb') as file_data:
-                for d in data_stream:
-                    file_data.write(d)
-        return CACHE_FOLDER + corpus_with_version
 
 @st.cache
 def arxiv():
@@ -281,59 +238,12 @@ def visualize_heatmap(heatmap, titel):
     st.markdown("## " + titel)
     st.markdown(markdown_text, unsafe_allow_html=True)
 
-examples = {"News Example 1": """They stand only six points above the drop zone with a rejuvenated Jose Mourinho returning to """
-                      """Old Trafford next followed by the Manchester derby at the weekend."""
-                      """Three Premier League managers have already been sacked with Mauricio Pochettino waiting in the wings for a big job."""
-                      """ But smiling Solskjaer is trying to remain positive believing in his long term plan to get the club back on track."""
-                      """ Solskjaer said: “It's that time of year and it’s never nice to see your colleagues lose their jobs."""
-                      """ “It doesn't make me more concerned, I'm just focusing on my job and that's doing as well as I can, look forward to the next game and looking long term and planning things with the board."""
-                      """ “These next two games are a great chance to improve things.”"""
-                      """Solskjaer actually needs to win those next two and Everton at home to have more points than Mourinho did after 17 games last season when The Special One became the sacked one."""
-                      """Solskjaer said: “When you change managers halfway through the season it’s because a club isn't where it wants to be.""",
-    "News Example 2": 
-                 """“And 2020 will then be the year we finally put behind us the arguments and uncertainty over Brexit."""
-                 """“We will get Parliament working on the people’s priorities — delivering 50,000 more nurses and 20,000 more police,"""
-                 """creating millions more GP appointments, and taking urgent action on the cost of living."""
-                 """“But if the Conservatives don’t get a majority, then on Friday 13th we will have the nightmare of a hung Parliament"""
-                 """with Jeremy Corbyn as Prime"""
-                 """Minister propped up by Nicola Sturgeon’s SNP."""
-                  """“Next year will be Groundhog Day in Parliament with MPs arguing every day about the referendum and businesses and"""
-                  """families left in limbo, unable to plan their futures.”"""
-                  """'TRANSFORMATIVE'"""
-                  """Meanwhile Chancellor Sajid Javid signalled there would be further tax cuts in subsequent Tory Budgets, telling the"""
-                  """Spectator magazine: “Whenever we can cut tax and give people back more of their hard-earned cash, we will do that.”"""
-                  """He also vowed to take advantage of historically low interest rates to borrow for major infrastructure investment"""
-                  """projects. In a candid interview, Mr Javid admitted the Tories should have cashed in on used those low interest rates"""
-                    """to borrow and spend more in recent years."""
-                    """He pledged to turn on the spending taps if the Tories win a majority — but he insisted the splurge would be"""
-                    """abandoned if interest rates rise again."""
-                    """The Chancellor said: “For a variety of factors, I think rates are going to remain low for a long time. """,
-    "TextRank Example":"""Compatibility of systems of linear constraints over the set of natural numbers. Criteria of """
+examples = { "TextRank Example":"""Compatibility of systems of linear constraints over the set of natural numbers. Criteria of """
                     """compatibility of a system of linear Diophantine equations, strict inequations, and nonstrict inequations are """
                     """considered. Upper bounds for components of a minimal set of solutions and algorithms of construction of minimal """
                     """generating sets of solutions for all types of systems are given. These criteria and the corresponding algorithms for """
                     """constructing a minimal supporting set of solutions can be used in solving all the considered  types systems and """
-                    """systems of mixed types.""",
-    "Paper Example 1": """We introduce a new type of deep contextualized word representation that models both (1) complex """
-                   """characteristics of word use (e.g., syntax and semantics), and (2) how these uses vary across linguistic contexts """
-                    """(i.e., to model polysemy). Our word vectors are learned functions of the internal states of a deep bidirectional """
-                    """language model (biLM), which is pre-trained on a large text corpus. We show that these representations can be easily """
-                    """added to existing models and significantly improve the state of the art across six challenging NLP problems, """
-                    """including question answering, textual entailment and sentiment analysis. We also present an analysis showing that """
-                    """exposing the deep internals of the pre-trained network is crucial, allowing downstream models to mix different types """
-                    """of semi-supervision signals.""",
-    "Paper Example 2": """Natural language processing tasks, such as question answering, machine translation, reading """
-                      """  comprehension,  and  summarization,  are  typically approached  with  supervised  learning on  task specific """
-                        """datasets. We demonstrate that language models begin to learn these tasks without any explicit supervision when """
-                        """trained on a new dataset of millions of webpages called WebText. When conditioned on a document plus questions, the """
-                        """answers generated by the language model reach 55 F1 on the CoQA dataset - matching or exceeding the performance of 3 """
-                        """out of 4 baseline systems without  using  the  127,000+  training  examples.The capacity of the language model is """
-                        """essential to the success of zero-shot task transfer and increasing it improves performance in a log-linear fashion """
-                        """across tasks. Our largest model, GPT-2,is a 1.5B parameter Transformer that achieves state of the art results on 7 """
-                        """out of 8 tested language modeling datasets in a zero-shot setting but still underfits WebText.   Samples from """
-                        """the model reflect these improvements and contain coherent paragraphs of text. These findings suggest a promising path """
-                        """towards building language processing systems which learn to perform tasks from their naturally occurring """
-                        """demonstrations."""}
+                    """systems of mixed types."""}
  
 def load_data(path):
     all_files = glob.glob(path + "/*.txt")
@@ -352,20 +262,9 @@ def download_and_process_corpus(corpus_name):
 
 # Textrank parameters
 
-text_input= st.sidebar.selectbox("Choose text", ["News Example 1", "News Example 2", "Paper Example 1","Paper Example 2", "TextRank Example", "Seal Data", "Arxiv", "User Input"]) 
+text_input= st.sidebar.selectbox("Choose text", ["TextRank Example", "Arxiv", "User Input"]) 
 if text_input == "User Input":
     document = st.text_input("Custom text", "", "input_document")
-elif text_input == "Seal Data":
-    dw = Datawarehouse()
-    corpus_name = st.sidebar.selectbox("Choose a corpus", list(dw.get_available_corpus()), 0)
-    corpus = download_and_process_corpus(corpus_name)
-    contract_id = st.sidebar.selectbox("Choose a contract", list(corpus.keys()))
-    start_idx_percent = st.sidebar.slider("Start index", 0, 100, step=1, value=0)
-    end_idx_percent = st.sidebar.slider("End index", 0, 100, step=1, value=100)
-    document = corpus[contract_id]
-    start_idx = int(start_idx_percent/100 * len(document))
-    end_idx = int(end_idx_percent/100 * len(document))
-    document = document[start_idx:end_idx]
 elif text_input == "Arxiv":
     corpus = arxiv()
     paper_title = st.sidebar.selectbox("Choose a contract", list(corpus.keys()))
@@ -376,8 +275,10 @@ else:
     document = examples[text_input]
 
 window_size = st.sidebar.slider("Window Size", 2, 10, step=1, value=2)
-iterations = st.sidebar.slider("iterations", 1, 50, step=1, value=20)
-damping_factor = st.sidebar.slider("Damping Factor", 1, 100, step=1, value=85) /100
+# iterations = st.sidebar.slider("iterations", 1, 50, step=1, value=20)
+iterations = 30
+# damping_factor = st.sidebar.slider("Damping Factor", 1, 100, step=1, value=85) /100
+damping_factor = 0.85
 num_keywords = st.sidebar.slider("Keywords to Extract", 1, 40, step=1, value=5)
 allowed_pos = st.sidebar.multiselect("Limit to POS", ["NOUN", "ADJ", "VERB", "PROPN", "PRON", "ADV", "INTJ",  "CCONJ", "DET","X"]) 
 use_lemma = st.sidebar.radio("Use lemma", ["No", "Yes"]) == "Yes"
